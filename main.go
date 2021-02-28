@@ -16,6 +16,17 @@ import (
 	_ "github.com/heroku/x/hmetrics/onload"
 )
 
+type getMoveRequest struct {
+	Fen   string `json:"fen"`
+	Depth int8   `json:"depth"`
+}
+
+type makeMoveRequest struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+	Fen  string `json:"fen"`
+}
+
 func main() {
 	/* port := os.Getenv("PORT")
 
