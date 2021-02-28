@@ -208,7 +208,7 @@ func findDeepMove(fen board.FEN, depth int8) (string, string) {
 	for moveNum := 0; moveNum < len(allowedMoves); moveNum++ {
 		waitGroup.Add(1)
 		go func(moveNum int, evalChan chan [2]float64, wg *sync.WaitGroup) {
-			defer waitGroup.Done()
+			defer wg.Done()
 			cb := board.Board{}
 			cb.Init(fen)
 			moveToEvaluate = cb.Move(allowedMoves[moveNum])

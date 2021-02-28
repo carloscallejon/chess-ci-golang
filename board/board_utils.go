@@ -154,8 +154,10 @@ type ChessBoard interface {
 
 // Move contains To and From fields relating to the Square number
 type Move struct {
-	From [2]int8
-	To   [2]int8
+	From    [2]int8
+	To      [2]int8
+	Capture bool
+	Check   bool
 }
 
 // FEN is a fen string
@@ -336,6 +338,10 @@ func (b *Board) approximateValue(move Move) float64 {
 	if fromPiece%5 == 0 && ((b.White && move.To[0] == 6) || (b.Black && move.To[0] == 1)) {
 		approx += value(6)
 	}
+
+	if move.Check {
+		approx += 10
+	}
 	return approx
 }
 
@@ -510,6 +516,7 @@ func getValue(piece, row, col int8) float64 {
 func (b *Board) AddMove(move Move) {
 	b.AllowedMoves = append(b.AllowedMoves, move)
 }
+
 func (b *Board) pawnMoves(r, c int8) {
 	forward := r + b.Color
 	twoForward := r + 2*b.Color
@@ -517,8 +524,9 @@ func (b *Board) pawnMoves(r, c int8) {
 		if b.Pieces[forward][c] == 0 {
 			if (!b.Pinned[r][c] || b.PinBy[r][c][1] == c) && (!b.InCheck || b.CheckPath[forward][c]) {
 				b.AddMove(Move{
-					From: [2]int8{r, c},
-					To:   [2]int8{forward, c},
+					From:  [2]int8{r, c},
+					To:    [2]int8{forward, c},
+					Check: b.willCheckOpponent(b.Pieces[r][c], forward, c),
 				})
 			}
 		}
@@ -527,8 +535,9 @@ func (b *Board) pawnMoves(r, c int8) {
 				if !b.Pinned[r][c] || (b.PinBy[r][c] == [2]int8{forward, c + 1}) {
 					if !b.InCheck || b.CheckPath[forward][c+1] {
 						b.AddMove(Move{
-							From: [2]int8{r, c},
-							To:   [2]int8{forward, c + 1},
+							From:  [2]int8{r, c},
+							To:    [2]int8{forward, c + 1},
+							Check: b.willCheckOpponent(b.Pieces[r][c], forward, c+1),
 						})
 					}
 				}
@@ -539,8 +548,9 @@ func (b *Board) pawnMoves(r, c int8) {
 				if !b.Pinned[r][c] || (b.PinBy[r][c] == [2]int8{forward, c - 1}) {
 					if !b.InCheck || b.CheckPath[forward][c-1] {
 						b.AddMove(Move{
-							From: [2]int8{r, c},
-							To:   [2]int8{forward, c - 1},
+							From:  [2]int8{r, c},
+							To:    [2]int8{forward, c - 1},
+							Check: b.willCheckOpponent(b.Pieces[r][c], forward, c-1),
 						})
 					}
 				}
@@ -549,15 +559,17 @@ func (b *Board) pawnMoves(r, c int8) {
 		if b.Fen.EnPassantSquare[0] == r && b.Fen.EnPassantSquare[1] == c+1 {
 			if !b.Pinned[r][c] && (!b.InCheck || b.CheckPath[forward][c+1]) {
 				b.AddMove(Move{
-					From: [2]int8{r, c},
-					To:   [2]int8{forward, c + 1},
+					From:  [2]int8{r, c},
+					To:    [2]int8{forward, c + 1},
+					Check: b.willCheckOpponent(b.Pieces[r][c], forward, c+1),
 				})
 			}
 		} else if b.Fen.EnPassantSquare[0] == r && b.Fen.EnPassantSquare[1] == c-1 {
 			if !b.Pinned[r][c] && (!b.InCheck || b.CheckPath[forward][c-1]) {
 				b.AddMove(Move{
-					From: [2]int8{r, c},
-					To:   [2]int8{forward, c - 1},
+					From:  [2]int8{r, c},
+					To:    [2]int8{forward, c - 1},
+					Check: b.willCheckOpponent(b.Pieces[r][c], forward, c-1),
 				})
 			}
 		}
@@ -567,13 +579,15 @@ func (b *Board) pawnMoves(r, c int8) {
 			//
 			if !b.Pinned[r][c] && (!b.InCheck || b.CheckPath[twoForward][c]) {
 				b.AddMove(Move{
-					From: [2]int8{r, c},
-					To:   [2]int8{twoForward, c},
+					From:  [2]int8{r, c},
+					To:    [2]int8{twoForward, c},
+					Check: b.willCheckOpponent(b.Pieces[r][c], twoForward, c),
 				})
 			}
 		}
 	}
 }
+
 func (b *Board) rookMoves(r, c int8) {
 	if b.Pinned[r][c] {
 		if r == b.PinBy[r][c][0] {
@@ -682,8 +696,9 @@ func (b *Board) knightMoves(r, c int8) {
 		if isInBoard(row, c+heights[h]) && b.Pieces[row][c+heights[h]]*b.Color <= 0 {
 			if !b.InCheck || b.CheckPath[row][c+heights[h]] {
 				b.AddMove(Move{
-					From: [2]int8{r, c},
-					To:   [2]int8{row, c + heights[h]},
+					From:  [2]int8{r, c},
+					To:    [2]int8{row, c + heights[h]},
+					Check: b.willCheckOpponent(b.Pieces[r][c], row, c+heights[h]),
 				})
 			}
 		}
@@ -773,20 +788,134 @@ func (b *Board) getLine(r int8, c int8, rows, cols []int8) {
 		} else if b.Pieces[rows[i]][cols[i]] != 0 {
 			if !b.InCheck || b.CheckPath[rows[i]][cols[i]] {
 				b.AddMove(Move{
-					From: [2]int8{r, c},
-					To:   [2]int8{rows[i], cols[i]},
+					From:  [2]int8{r, c},
+					To:    [2]int8{rows[i], cols[i]},
+					Check: b.willCheckOpponent(b.Pieces[r][c], rows[i], cols[i]),
 				})
 			}
 			break
 		} else {
 			if !b.InCheck || b.CheckPath[rows[i]][cols[i]] {
 				b.AddMove(Move{
-					From: [2]int8{r, c},
-					To:   [2]int8{rows[i], cols[i]},
+					From:  [2]int8{r, c},
+					To:    [2]int8{rows[i], cols[i]},
+					Check: b.willCheckOpponent(b.Pieces[r][c], rows[i], cols[i]),
 				})
 			}
 		}
 	}
+}
+
+/****************************************** Direct Vision ******************************************/
+func (b *Board) willCheckOpponent(t, r, c int8) bool {
+	switch int8(math.Abs(float64(t))) {
+	case 2:
+		// rook
+		return b.willCheckRook(r, c)
+	case 3:
+		// knight
+		heights := [8]int8{1, 2, 2, 1, -1, -2, -2, -1}
+		rows := [8]int8{-2, -1, 1, 2}
+		var h int8
+		var row int8
+		for h = 0; h < 8; h++ {
+			row = rows[h%4] + r
+			if isInBoard(row, c+heights[h]) {
+				if b.Pieces[row][c+heights[h]]*b.Color == -1 {
+					return true
+				}
+			}
+		}
+	case 4:
+		// bishop
+		return b.willCheckBishop(r, c)
+	case 5:
+		// pawn
+		forward := r + b.Color
+		if c != 7 {
+			if b.Pieces[forward][c+1]*b.Color == -1 {
+				return true
+			}
+		}
+		if c != 0 {
+			if b.Pieces[forward][c-1]*b.Color == -1 {
+				return true
+			}
+		}
+	case 6:
+		// queen
+		return b.willCheckRook(r, c) || b.willCheckBishop(r, c)
+	}
+	return false
+}
+
+func (b *Board) willCheckRook(r, c int8) bool {
+	rowsToTop := makeRange(r+1, 8, 1)
+	rowsToBottom := makeRange(r-1, -1, -1)
+	colArrTop := []int8{}
+	colArrBottom := []int8{}
+	var k int8
+	for k = 0; k < 8-r; k++ {
+		colArrTop = append(colArrTop, c)
+	}
+	for k = 0; k < r; k++ {
+		colArrBottom = append(colArrBottom, c)
+	}
+
+	/* if len(rowsToTop) != 0 && len(colArrTop) != 0 {
+		b.getLineOfSight(r, c, rowsToTop, colArrTop)
+	}
+	if len(rowsToBottom) != 0 && len(colArrBottom) != 0 {
+		b.getLineOfSight(r, c, rowsToBottom, colArrBottom)
+	}*/
+
+	colsToRight := makeRange(c+1, 8, 1)
+	colsToLeft := makeRange(c-1, -1, -1)
+	rowArrRight := []int8{}
+	rowArrLeft := []int8{}
+	for k = 0; k < 8-c; k++ {
+		rowArrRight = append(rowArrRight, r)
+	}
+	for k = 0; k < c; k++ {
+		rowArrLeft = append(rowArrLeft, r)
+	}
+
+	return (b.doesLineCauseCheck(rowsToTop, colArrTop) ||
+		b.doesLineCauseCheck(rowsToBottom, colArrBottom) ||
+		b.doesLineCauseCheck(rowArrRight, colsToRight) ||
+		b.doesLineCauseCheck(rowArrLeft, colsToLeft))
+}
+
+func (b *Board) willCheckBishop(r, c int8) bool {
+	rowsToTop := makeRange(r+1, 8, 1)
+	rowsToBottom := makeRange(r-1, -1, -1)
+	colsToRight := makeRange(c+1, 8, 1)
+	colsToLeft := makeRange(c-1, -1, -1)
+	return (b.doesLineCauseCheck(rowsToTop, colsToRight) ||
+		b.doesLineCauseCheck(rowsToBottom, colsToLeft) ||
+		b.doesLineCauseCheck(rowsToTop, colsToLeft) ||
+		b.doesLineCauseCheck(rowsToBottom, colsToRight))
+}
+
+func (b *Board) doesLineCauseCheck(rows, cols []int8) bool {
+	var i int = 0
+	var depth int
+	if len(rows) < len(cols) {
+		depth = len(rows)
+	} else {
+		depth = len(cols)
+	}
+
+	for ; i < depth; i++ {
+		if b.Pieces[rows[i]][cols[i]]*b.Color == 0 {
+			continue
+		} else if b.Pieces[rows[i]][cols[i]]*b.Color != -1 {
+			return false
+		} else {
+			return true
+		}
+	}
+	return false
 }
 
 /****************************************** Vision ******************************************/
@@ -818,6 +947,7 @@ func (b *Board) pawnVision(r, c int8) {
 		}
 	}
 }
+
 func (b *Board) rookVision(r, c int8) {
 	b.straightVision(r, c)
 }
