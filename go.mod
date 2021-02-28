@@ -1,9 +1,8 @@
 module github.com/carloscallejon/chess-ci-golang
 
-go 1.14
+go 1.12
 
 require (
-	github.com/carloscallejon/chess-ci-golang/board v0.0.0-20210228031236-0a846ec86d83
 	github.com/gin-gonic/gin v0.0.0-20150626140855-4cc2de6207f4 // indirect
 	github.com/heroku/x v0.0.0-20171004170240-705849e307dd
 	github.com/manucorporat/sse v0.0.0-20150604091100-c142f0f1baea // indirect
