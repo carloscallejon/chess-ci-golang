@@ -315,7 +315,7 @@ func getDepth(preferredDepth float64, fen board.FEN) int8 {
 		calculatedDepth = 7
 	} else if complexityEstimate < 40 {
 		calculatedDepth = 6
-	} else if complexityEstimate < 70 {
+	} else if complexityEstimate < 60 {
 		calculatedDepth = 5
 	} else {
 		calculatedDepth = 4
