@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	board "github.com/carloscallejon/chess-ci-golang/board"
@@ -28,23 +29,13 @@ type makeMoveRequest struct {
 }
 
 func main() {
-	/* port := os.Getenv("PORT")
-
-	if port == "" {
-		log.Fatal("$PORT must be set")
-	}
-
-	router := gin.New()
-	router.Use(gin.Logger())
-	router.LoadHTMLGlob("templates/*.tmpl.html")
-	router.Static("/static", "static")
-
-	router.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.tmpl.html", nil)
-	})
-
-	router.Run(":" + port) */
-
+	/*
+		// Uncomment for performance profiling
+		start := time.Now()
+		findDeepMove(board.Str2FEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"), 5)
+		duration := time.Since(start)
+		fmt.Println(duration)
+	*/
 	fileServer := http.FileServer(http.Dir("./static"))
 	http.Handle("/", fileServer)
 	http.HandleFunc("/makeMove", makeMoveHandler)
@@ -170,12 +161,12 @@ func getMoveHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
 	rawResponse := make(map[string]interface{})
 	preferredDepth := float64(moveRequest.Depth)
 
 	// Produce allowed moves of format {"e2-e4", "e2-e3"}
-	var cb board.Board
-	cb = board.Board{}
+	cb := board.Board{}
 	initialFen := board.Str2FEN(moveRequest.Fen)
 	cb.Init(initialFen)
 	cb.GetOpponentVision()
@@ -183,7 +174,7 @@ func getMoveHandler(w http.ResponseWriter, r *http.Request) {
 	depth := getDepth(preferredDepth, cb.Fen)
 	fmt.Println("depth: ", depth)
 	start := time.Now()
-	rawResponse["nextMove"], rawResponse["evaluation"] = findDeepMove(w, initialFen, depth)
+	rawResponse["nextMove"], rawResponse["evaluation"] = findDeepMove(initialFen, depth)
 	duration := time.Since(start)
 	fmt.Println("Time to completion:", duration)
 
@@ -195,7 +186,7 @@ func getMoveHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, string(res))
 }
 
-func findDeepMove(w http.ResponseWriter, fen board.FEN, depth int8) (string, string) {
+func findDeepMove(fen board.FEN, depth int8) (string, string) {
 	cb := board.Board{}
 	cb.Init(fen)
 	cb.GetOpponentVision()
@@ -211,22 +202,37 @@ func findDeepMove(w http.ResponseWriter, fen board.FEN, depth int8) (string, str
 	var moveToEvaluate board.FEN
 	maxEval := math.Inf(-1)
 	var maxIdx int = -1
+	var evaluations [][2]float64
+	evalChan := make(chan [2]float64, len(allowedMoves))
+	var waitGroup sync.WaitGroup
 	for moveNum := 0; moveNum < len(allowedMoves); moveNum++ {
-		fmt.Fprintf(w, string(""))
-		cb.Init(fen)
-		moveToEvaluate = cb.Move(allowedMoves[moveNum])
-		alpha := math.Inf(-1)
-		beta := math.Inf(1)
-		currentEval = -evalToDepth(moveToEvaluate, depth, alpha, beta)
+		waitGroup.Add(1)
+		go func(moveNum int, evalChan chan [2]float64, wg *sync.WaitGroup) {
+			defer waitGroup.Done()
+			cb := board.Board{}
+			cb.Init(fen)
+			moveToEvaluate = cb.Move(allowedMoves[moveNum])
+			alpha := math.Inf(-1)
+			beta := math.Inf(1)
+			currentEval = -evalToDepth(moveToEvaluate, depth, alpha, beta)
+			evalChan <- [2]float64{float64(moveNum), currentEval}
+		}(moveNum, evalChan, &waitGroup)
+	}
 
-		if currentEval > maxEval {
-			maxEval = currentEval
-			maxIdx = moveNum
+	for range allowedMoves {
+		evaluations = append(evaluations, <-evalChan)
+	}
+	waitGroup.Wait()
+
+	for i := 0; i < len(allowedMoves); i++ {
+		if evaluations[i][1] > maxEval {
+			maxIdx = int(evaluations[i][0])
+			maxEval = evaluations[i][1]
 		} else if currentEval == maxEval {
 			chooseMove := rand.Intn(2)
 			if chooseMove == 1 {
-				maxEval = currentEval
-				maxIdx = moveNum
+				maxIdx = int(evaluations[i][0])
+				maxEval = evaluations[i][1]
 			}
 		}
 	}
