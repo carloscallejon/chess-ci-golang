@@ -832,16 +832,19 @@ func (b *Board) willCheckOpponent(t, r, c int8) bool {
 	case 5:
 		// pawn
 		forward := r + b.Color
-		if c != 7 {
-			if b.Pieces[forward][c+1]*b.Color == -1 {
-				return true
+		if r+forward != 7 && r+forward != 0 {
+			if c != 7 {
+				if b.Pieces[forward][c+1]*b.Color == -1 {
+					return true
+				}
+			}
+			if c != 0 {
+				if b.Pieces[forward][c-1]*b.Color == -1 {
+					return true
+				}
 			}
 		}
-		if c != 0 {
-			if b.Pieces[forward][c-1]*b.Color == -1 {
-				return true
-			}
-		}
+		return false
 	case 6:
 		// queen
 		return b.willCheckRook(r, c) || b.willCheckBishop(r, c)
