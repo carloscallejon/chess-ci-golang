@@ -1,0 +1,12 @@
+{
+  "name": "Chess CI: Go",
+  "description": "Simple chess engine",
+  "keywords": [
+    "chess",
+    "go",
+    "sample",
+    "example"
+  ],
+  "website": "http://github.com/carloscallejon/chess-ci-golang",
+  "repository": "http://github.com/carloscallejon/chess-ci-golang"
+}

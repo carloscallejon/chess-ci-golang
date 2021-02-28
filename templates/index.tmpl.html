@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Chess</title>
+    <link rel="stylesheet" href="./static/css/chessboard-1.0.0.min.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+    <link rel="stylesheet" href="./static/css/main.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="./static/js/chessboard-1.0.0.min.js"></script>
+    </head>
+  <body>
+  <div class="board-container">
+    <h1> Chess AI </h1>
+    <div id="board"></div>
+  </div>
+  <div class="game-controls">
+    <button type="button" id="newGameWhite" class="btn btn-light">Start as white</button>
+    <button type="button" id="newGameBlack" class="btn btn-dark">Start as black</button>
+  </div>
+  <div class="game-result"></div>
+  <script type="module">
+    import {startBoard} from './static/index.js'
+    startBoard();
+  </script>
+</body>
+</html>

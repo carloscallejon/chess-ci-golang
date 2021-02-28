@@ -1,0 +1,35 @@
+.board-container {
+    margin: auto; 
+    width: 400px
+}
+
+.board-container h1 {
+    display:flex;
+    margin:auto;
+    margin-top: 30px;
+    margin-bottom: 30px;
+    justify-content: center;
+}
+
+.game-controls {
+    display: flex;
+    padding-top:20px;
+    margin: auto; 
+    width: 400px;
+}
+
+.game-result {
+    display:flex;
+    padding-top:20px;
+    margin: auto; 
+    width: 400px;
+    justify-content: center;
+}
+
+.game-controls button {
+    margin: auto; 
+}
+
+#board {
+    width: 400px;
+}

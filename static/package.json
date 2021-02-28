@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "ChessLogic": "file:js"
+  }
+}
