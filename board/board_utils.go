@@ -832,7 +832,7 @@ func (b *Board) willCheckOpponent(t, r, c int8) bool {
 	case 5:
 		// pawn
 		forward := r + b.Color
-		if r+forward != 7 && r+forward != 0 {
+		if r+forward >= 7 && r+forward <= 0 {
 			if c != 7 {
 				if b.Pieces[forward][c+1]*b.Color == -1 {
 					return true
