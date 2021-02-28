@@ -183,7 +183,7 @@ func getMoveHandler(w http.ResponseWriter, r *http.Request) {
 	depth := getDepth(preferredDepth, cb.Fen)
 	fmt.Println("depth: ", depth)
 	start := time.Now()
-	rawResponse["nextMove"], rawResponse["evaluation"] = findDeepMove(initialFen, depth)
+	rawResponse["nextMove"], rawResponse["evaluation"] = findDeepMove(w, initialFen, depth)
 	duration := time.Since(start)
 	fmt.Println("Time to completion:", duration)
 
@@ -195,7 +195,7 @@ func getMoveHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, string(res))
 }
 
-func findDeepMove(fen board.FEN, depth int8) (string, string) {
+func findDeepMove(w http.ResponseWriter, fen board.FEN, depth int8) (string, string) {
 	cb := board.Board{}
 	cb.Init(fen)
 	cb.GetOpponentVision()
@@ -212,6 +212,7 @@ func findDeepMove(fen board.FEN, depth int8) (string, string) {
 	maxEval := math.Inf(-1)
 	var maxIdx int = -1
 	for moveNum := 0; moveNum < len(allowedMoves); moveNum++ {
+		fmt.Fprintf(w, string(""))
 		cb.Init(fen)
 		moveToEvaluate = cb.Move(allowedMoves[moveNum])
 		alpha := math.Inf(-1)
@@ -302,7 +303,9 @@ func getDepth(preferredDepth float64, fen board.FEN) int8 {
 	complexityEstimate := 10.0*numQueens + 6.0*(numRooks+numBishops) + 0.5*numPawns + 3.0*numKnights
 	fmt.Println("Position complexity: ", complexityEstimate)
 	var calculatedDepth float64
-	if complexityEstimate < 20 {
+	if fen.FullMove <= 4 {
+		calculatedDepth = 4
+	} else if complexityEstimate < 20 {
 		calculatedDepth = 7
 	} else if complexityEstimate < 40 {
 		calculatedDepth = 6
